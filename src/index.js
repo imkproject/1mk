@@ -29,16 +29,30 @@ async function sha256hex(s) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyCaptcha(token, ip, secret) {
-  if (!token) return { success: false };
-  const body = new URLSearchParams({ secret, response: token });
+/* ---------- капча ---------- */
+
+async function verifyCaptcha(token, ip, env) {
+  if (!env.HCAPTCHA_SECRET) {
+    console.error("HCAPTCHA_SECRET не задан");
+    return { success: false, reason: "config" };
+  }
+  if (!token) return { success: false, reason: "empty" };
+
+  const body = new URLSearchParams({ secret: env.HCAPTCHA_SECRET, response: token });
   if (ip) body.set("remoteip", ip);
-  const res = await fetch("https://api.hcaptcha.com/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  return res.json();
+
+  try {
+    const res = await fetch("https://api.hcaptcha.com/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    if (!res.ok) return { success: false, reason: "http" };
+    return await res.json();
+  } catch (e) {
+    console.error("hCaptcha недоступна:", e.message);
+    return { success: false, reason: "network" };
+  }
 }
 
 /* ---------- антибот ---------- */
@@ -56,7 +70,6 @@ async function rateLimit(env, ip, bucket, limit, windowSec) {
     "SELECT count FROM rate_limits WHERE ip = ? AND bucket = ? AND window_start = ?"
   ).bind(ip, bucket, windowStart).first();
 
-  // редкая уборка старых записей
   if (Math.random() < 0.02) {
     await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
       .bind(now - 86400).run();
@@ -144,9 +157,13 @@ async function handleApi(request, env, url) {
   const ts = Number(body.ts) || 0;
   if (!ts || Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
 
-  if (env.HCAPTCHA_SECRET) {
-    const captcha = await verifyCaptcha(body.captcha, ip, env.HCAPTCHA_SECRET);
-    if (!captcha.success) return json({ error: "Капча не пройдена" }, 400);
+  // капча обязательна (как в KZRP)
+  const cap = await verifyCaptcha(body.captcha, ip, env);
+  if (!cap.success) {
+    const msg = cap.reason === "config"
+      ? "Капча временно недоступна"
+      : "Неверная капча. Попробуйте снова";
+    return json({ error: msg }, 400);
   }
 
   const password = String(body.password || "");
