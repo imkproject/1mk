@@ -129,41 +129,113 @@
 <footer><div class="wrap foot"><div class="brand">Imk<span>Project</span></div><div>GoreBox 27 · Новая эра начинается здесь</div><div>© 2026 ImkProject</div></div></footer>
 
 <div class="auth-modal" id="authModal"><div class="auth-box">
-<button class="close" id="closeAuth">×</button><h2>Личный кабинет</h2>
-<div class="auth-tabs"><button type="button" class="active" data-mode="login">Вход</button><button type="button" data-mode="register">Регистрация</button></div>
+<button class="close" id="closeAuth">×</button>
+<div class="auth-tabs">
+<button data-mode="login" class="active">Вход</button>
+<button data-mode="register">Регистрация</button>
+</div>
 <form id="authForm" novalidate>
 <input type="text" id="hp" name="hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
 <div id="regFields" hidden><label>Имя пользователя</label><input id="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="Логин" autocomplete="username"><label>Электронная почта</label><input id="email" type="email" maxlength="254" placeholder="name@example.com" autocomplete="email"></div>
 <div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" placeholder="Логин или почта" autocomplete="username"></div>
 <label>Пароль</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="current-password">
 <div id="confirmField" hidden><label>Повторите пароль</label><input id="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"></div>
-<div class="h-captcha" data-sitekey="c5182b4e-9ede-4990-9266-45901242cca6" data-theme="dark"></div><p style="font-size:12px;color:#aaa">Защита hCaptcha.</p><div class="auth-status" id="authStatus"></div>
+<div class="h-captcha" data-sitekey="c5182b4e-9ede-4990-9266-45901242cca6" data-theme="dark"></div>
+<p style="font-size:12px;color:#aaa">Защита hCaptcha.</p>
+<div class="auth-status" id="authStatus"></div>
 <button class="auth-btn" id="submitAuth" type="submit">Войти</button>
-</form></div></div>
+</form>
+</div></div>
+
 <script>
-(()=> {
-let mode='login', user=null;
+(() => {
+let mode='login', user=null, formOpenedAt=Date.now();
 const $=id=>document.getElementById(id), modal=$('authModal'), form=$('authForm');
+
 function resetCaptcha(){if(window.hcaptcha){try{hcaptcha.reset()}catch(e){}}}
-function showMode(m){mode=m;document.querySelectorAll('.auth-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
-$('regFields').hidden=m!=='register';$('confirmField').hidden=m!=='register';$('identityField').hidden=m==='register';
-$('submitAuth').textContent=m==='register'?'Создать аккаунт':'Войти';$('authStatus').textContent='';resetCaptcha()}
+
+function showMode(m){
+  mode=m;
+  document.querySelectorAll('.auth-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  $('regFields').hidden=m!=='register';
+  $('confirmField').hidden=m!=='register';
+  $('identityField').hidden=m==='register';
+  $('submitAuth').textContent=m==='register'?'Создать аккаунт':'Войти';
+  $('authStatus').textContent='';
+  formOpenedAt=Date.now();
+  resetCaptcha();
+}
+
 document.querySelectorAll('.auth-tabs button').forEach(b=>b.onclick=()=>showMode(b.dataset.mode));
-$('openAuth').onclick=()=>{modal.classList.add('open');showMode('login')};$('closeAuth').onclick=()=>modal.classList.remove('open');
+$('openAuth').onclick=()=>{modal.classList.add('open');showMode('login')};
+$('closeAuth').onclick=()=>modal.classList.remove('open');
 modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
-function render(){let a=$('accountArea');a.replaceChildren();if(user){let s=document.createElement('span');s.textContent=user.username+' ';let b=document.createElement('button');b.className='auth-btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/api/logout',{method:'POST'});user=null;render()};a.append(s,b)}else{let b=document.createElement('button');b.className='auth-btn';b.textContent='Войти';b.onclick=()=>{modal.classList.add('open');showMode('login')};a.append(b)}}
-async function me(){try{let r=await fetch('/api/me');let d=await r.json();user=d.user;render()}catch(e){}}
-form.onsubmit=async e=>{e.preventDefault();$('submitAuth').disabled=true;
-let token=document.querySelector('[name="h-captcha-response"]')?.value||'';
-if(!token){$('authStatus').textContent='Пройдите проверку «Я не робот».';$('submitAuth').disabled=false;resetCaptcha();return}
-$('authStatus').textContent='Проверка…';
-let p={password:$('password').value,captcha:token};
-if(mode==='register'){p.username=$('username').value.trim();p.email=$('email').value.trim();if($('password').value!==$('confirmPassword').value){$('authStatus').textContent='Пароли не совпадают.';$('submitAuth').disabled=false;return}}
-else p.identity=$('identity').value.trim();
-try{let r=await fetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});let d=await r.json();if(!r.ok)throw Error(d.error||'Ошибка');user=d.user;render();modal.classList.remove('open');form.reset();resetCaptcha()}catch(err){$('authStatus').textContent=err.message;resetCaptcha()}finally{$('submitAuth').disabled=false}};
+
+function render(){
+  const a=$('accountArea');a.replaceChildren();
+  if(user){
+    const s=document.createElement('span');s.textContent=user.username+' ';
+    const b=document.createElement('button');b.className='auth-btn';b.textContent='Выйти';
+    b.onclick=async()=>{await fetch('/api/logout',{method:'POST'});user=null;render()};
+    a.append(s,b);
+  }else{
+    const b=document.createElement('button');b.className='auth-btn';b.textContent='Войти';
+    b.onclick=()=>{modal.classList.add('open');showMode('login')};
+    a.append(b);
+  }
+}
+
+async function me(){
+  try{const r=await fetch('/api/me');const d=await r.json();user=d.user;render()}catch(e){}
+}
+
+form.onsubmit=async e=>{
+  e.preventDefault();
+  $('submitAuth').disabled=true;
+
+  const token=document.querySelector('[name="h-captcha-response"]')?.value||'';
+  if(!token){
+    $('authStatus').textContent='Пройдите проверку «Я не робот».';
+    $('submitAuth').disabled=false;
+    resetCaptcha();
+    return;
+  }
+
+  $('authStatus').textContent='Проверка…';
+
+  const p={password:$('password').value,captcha:token,hp:$('hp').value,ts:formOpenedAt};
+
+  if(mode==='register'){
+    p.username=$('username').value.trim();
+    p.email=$('email').value.trim();
+    if($('password').value!==$('confirmPassword').value){
+      $('authStatus').textContent='Пароли не совпадают.';
+      $('submitAuth').disabled=false;
+      return;
+    }
+  }else{
+    p.identity=$('identity').value.trim();
+  }
+
+  try{
+    const r=await fetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    const d=await r.json();
+    if(!r.ok)throw Error(d.error||'Ошибка');
+    user=d.user;
+    render();
+    modal.classList.remove('open');
+    form.reset();
+    resetCaptcha();
+  }catch(err){
+    $('authStatus').textContent=err.message;
+    resetCaptcha();
+  }finally{
+    $('submitAuth').disabled=false;
+  }
+};
+
 me();
 })();
 </script>
-
 </body>
 </html>
