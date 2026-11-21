@@ -52,6 +52,7 @@
 .auth-box label{font-size:13px;color:#ccc}.auth-box .close{position:absolute;right:14px;top:9px;background:none;color:#aaa;border:0;font-size:25px;cursor:pointer}
 .auth-tabs{display:flex;gap:8px;margin:15px 0}.auth-tabs button{flex:1;padding:10px;background:#282828;border:1px solid #444;color:#fff;border-radius:7px;cursor:pointer}.auth-tabs button.active{border-color:#f21d2b;background:#3a1014}
 .auth-status{min-height:22px;color:#ff737b;font-size:13px}.auth-status.ok{color:#8de0a0}
+.cf-turnstile{margin:10px 0}
 </style>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -132,11 +133,11 @@
 <button class="close" id="closeAuth">×</button><h2>Личный кабинет</h2>
 <div class="auth-tabs"><button type="button" class="active" data-mode="login">Вход</button><button type="button" data-mode="register">Регистрация</button></div>
 <form id="authForm">
-<div id="regFields" hidden><label>Имя пользователя</label><input id="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="Логин"><label>Электронная почта</label><input id="email" type="email" maxlength="254" placeholder="name@example.com"></div>
-<div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" required placeholder="Логин или почта"></div>
+<div id="regFields" hidden><label>Имя пользователя</label><input id="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="Логин" autocomplete="username"><label>Электронная почта</label><input id="email" type="email" maxlength="254" placeholder="name@example.com" autocomplete="email"></div>
+<div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" required placeholder="Логин или почта" autocomplete="username"></div>
 <label>Пароль</label><input id="password" type="password" minlength="8" maxlength="128" required autocomplete="current-password">
-<div id="confirmField" hidden><label>Повторите пароль</label><input id="confirmPassword" type="password" minlength="8" maxlength="128"></div>
-<div class="cf-turnstile" data-sitekey="REPLACE_WITH_TURNSTILE_SITE_KEY" data-theme="dark"></div>
+<div id="confirmField" hidden><label>Повторите пароль</label><input id="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"></div>
+<div class="cf-turnstile" data-sitekey="0x4AAAAAAAGLU56LzdbjFhLLz" data-theme="dark" data-language="ru"></div>
 <p style="font-size:12px;color:#aaa">Защита Cloudflare Turnstile.</p><div class="auth-status" id="authStatus"></div>
 <button class="auth-btn" id="submitAuth" type="submit">Войти</button>
 </form></div></div>
@@ -144,19 +145,23 @@
 (()=> {
 let mode='login', user=null;
 const $=id=>document.getElementById(id), modal=$('authModal'), form=$('authForm');
+function resetCaptcha(){if(window.turnstile){try{turnstile.reset()}catch(e){}}}
 function showMode(m){mode=m;document.querySelectorAll('.auth-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
 $('regFields').hidden=m!=='register';$('confirmField').hidden=m!=='register';$('identityField').hidden=m==='register';
-$('submitAuth').textContent=m==='register'?'Создать аккаунт':'Войти';$('authStatus').textContent='';if(window.turnstile)try{turnstile.reset()}catch(e){}}
+$('submitAuth').textContent=m==='register'?'Создать аккаунт':'Войти';$('authStatus').textContent='';resetCaptcha()}
 document.querySelectorAll('.auth-tabs button').forEach(b=>b.onclick=()=>showMode(b.dataset.mode));
 $('openAuth').onclick=()=>{modal.classList.add('open');showMode('login')};$('closeAuth').onclick=()=>modal.classList.remove('open');
 modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
 function render(){let a=$('accountArea');a.replaceChildren();if(user){let s=document.createElement('span');s.textContent=user.username+' ';let b=document.createElement('button');b.className='auth-btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/api/logout',{method:'POST'});user=null;render()};a.append(s,b)}else{let b=document.createElement('button');b.className='auth-btn';b.textContent='Войти';b.onclick=()=>{modal.classList.add('open');showMode('login')};a.append(b)}}
 async function me(){try{let r=await fetch('/api/me');let d=await r.json();user=d.user;render()}catch(e){}}
-form.onsubmit=async e=>{e.preventDefault();$('submitAuth').disabled=true;$('authStatus').textContent='Проверка…';
-let p={password:$('password').value,captcha:document.querySelector('[name="cf-turnstile-response"]')?.value||''};
+form.onsubmit=async e=>{e.preventDefault();$('submitAuth').disabled=true;
+let token=document.querySelector('[name="cf-turnstile-response"]')?.value||'';
+if(!token){$('authStatus').textContent='Пройдите проверку «Я не робот».';$('submitAuth').disabled=false;resetCaptcha();return}
+$('authStatus').textContent='Проверка…';
+let p={password:$('password').value,captcha:token};
 if(mode==='register'){p.username=$('username').value.trim();p.email=$('email').value.trim();if($('password').value!==$('confirmPassword').value){$('authStatus').textContent='Пароли не совпадают.';$('submitAuth').disabled=false;return}}
 else p.identity=$('identity').value.trim();
-try{let r=await fetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});let d=await r.json();if(!r.ok)throw Error(d.error||'Ошибка');user=d.user;render();modal.classList.remove('open');form.reset();if(window.turnstile)turnstile.reset()}catch(err){$('authStatus').textContent=err.message;if(window.turnstile)turnstile.reset()}finally{$('submitAuth').disabled=false}};
+try{let r=await fetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});let d=await r.json();if(!r.ok)throw Error(d.error||'Ошибка');user=d.user;render();modal.classList.remove('open');form.reset();resetCaptcha()}catch(err){$('authStatus').textContent=err.message;resetCaptcha()}finally{$('submitAuth').disabled=false}};
 me();
 })();
 </script>
