@@ -29,30 +29,6 @@ async function sha256hex(s) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyCaptcha(token, ip, env) {
-  if (!env.HCAPTCHA_SECRET) {
-    console.error("HCAPTCHA_SECRET не задан");
-    return { success: false, reason: "config" };
-  }
-  if (!token) return { success: false, reason: "empty" };
-
-  const body = new URLSearchParams({ secret: env.HCAPTCHA_SECRET, response: token });
-  if (ip) body.set("remoteip", ip);
-
-  try {
-    const res = await fetch("https://api.hcaptcha.com/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-    if (!res.ok) return { success: false, reason: "http" };
-    return await res.json();
-  } catch (e) {
-    console.error("hCaptcha недоступна:", e.message);
-    return { success: false, reason: "network" };
-  }
-}
-
 async function rateLimit(env, ip, bucket, limit, windowSec) {
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - (now % windowSec);
@@ -145,11 +121,6 @@ async function handleApi(request, env, url) {
 
   const ts = Number(body.ts) || 0;
   if (ts && Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
-
-  if (env.HCAPTCHA_SECRET) {
-    const cap = await verifyCaptcha(body.captcha, ip, env);
-    if (!cap.success) return json({ error: "Неверная капча. Попробуйте снова" }, 400);
-  }
 
   const password = String(body.password || "");
   if (password.length < 8) return json({ error: "Пароль должен быть не короче 8 символов" }, 400);
