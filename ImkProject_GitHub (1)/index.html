@@ -143,7 +143,7 @@
 (()=> {
 let mode='login', user=null;
 const $=id=>document.getElementById(id), modal=$('authModal'), form=$('authForm');
-function resetCaptcha(){if(window.turnstile){try{turnstile.reset()}catch(e){}}}
+function resetCaptcha(){if(window.hcaptcha){try{hcaptcha.reset()}catch(e){}}}
 function showMode(m){mode=m;document.querySelectorAll('.auth-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
 $('regFields').hidden=m!=='register';$('confirmField').hidden=m!=='register';$('identityField').hidden=m==='register';
 $('submitAuth').textContent=m==='register'?'Создать аккаунт':'Войти';$('authStatus').textContent='';resetCaptcha()}
@@ -153,7 +153,7 @@ modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
 function render(){let a=$('accountArea');a.replaceChildren();if(user){let s=document.createElement('span');s.textContent=user.username+' ';let b=document.createElement('button');b.className='auth-btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/api/logout',{method:'POST'});user=null;render()};a.append(s,b)}else{let b=document.createElement('button');b.className='auth-btn';b.textContent='Войти';b.onclick=()=>{modal.classList.add('open');showMode('login')};a.append(b)}}
 async function me(){try{let r=await fetch('/api/me');let d=await r.json();user=d.user;render()}catch(e){}}
 form.onsubmit=async e=>{e.preventDefault();$('submitAuth').disabled=true;
-let token=document.querySelector('[name="cf-turnstile-response"]')?.value||'';
+let token=document.querySelector('[name="h-captcha-response"]')?.value||'';
 if(!token){$('authStatus').textContent='Пройдите проверку «Я не робот».';$('submitAuth').disabled=false;resetCaptcha();return}
 $('authStatus').textContent='Проверка…';
 let p={password:$('password').value,captcha:token};
