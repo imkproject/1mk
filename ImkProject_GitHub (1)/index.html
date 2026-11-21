@@ -132,6 +132,7 @@
 <button class="close" id="closeAuth">×</button><h2>Личный кабинет</h2>
 <div class="auth-tabs"><button type="button" class="active" data-mode="login">Вход</button><button type="button" data-mode="register">Регистрация</button></div>
 <form id="authForm" novalidate>
+<input type="text" id="hp" name="hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
 <div id="regFields" hidden><label>Имя пользователя</label><input id="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="Логин" autocomplete="username"><label>Электронная почта</label><input id="email" type="email" maxlength="254" placeholder="name@example.com" autocomplete="email"></div>
 <div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" placeholder="Логин или почта" autocomplete="username"></div>
 <label>Пароль</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="current-password">
