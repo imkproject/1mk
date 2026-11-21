@@ -1,0 +1,7 @@
+{
+  "name": "1mk",
+  "compatibility_date": "2026-11-21",
+  "assets": {
+    "directory": "./public"   // ← папка, где лежит index.html и остальные файлы
+  }
+}
