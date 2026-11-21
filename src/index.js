@@ -29,8 +29,6 @@ async function sha256hex(s) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/* ---------- капча ---------- */
-
 async function verifyCaptcha(token, ip, env) {
   if (!env.HCAPTCHA_SECRET) {
     console.error("HCAPTCHA_SECRET не задан");
@@ -55,8 +53,6 @@ async function verifyCaptcha(token, ip, env) {
   }
 }
 
-/* ---------- антибот ---------- */
-
 async function rateLimit(env, ip, bucket, limit, windowSec) {
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - (now % windowSec);
@@ -77,8 +73,6 @@ async function rateLimit(env, ip, bucket, limit, windowSec) {
 
   return (row?.count || 0) <= limit;
 }
-
-/* ---------- сессии ---------- */
 
 const SESSION_COOKIE = "imk_sid";
 const SESSION_TTL = 60 * 60 * 24 * 30;
@@ -115,8 +109,6 @@ async function currentUser(request, env) {
   return row || null;
 }
 
-/* ---------- API ---------- */
-
 async function handleApi(request, env, url) {
   const path = url.pathname;
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
@@ -141,7 +133,6 @@ async function handleApi(request, env, url) {
 
   const isRegister = path === "/api/register";
 
-  // лимит запросов: 5 регистраций и 10 входов за 10 минут с одного IP
   const allowed = await rateLimit(env, ip, isRegister ? "reg" : "login", isRegister ? 5 : 10, 600);
   if (!allowed) {
     return json({ error: "Слишком много попыток. Попробуйте позже." }, 429);
@@ -150,14 +141,11 @@ async function handleApi(request, env, url) {
   let body;
   try { body = await request.json(); } catch { return json({ error: "Некорректный запрос" }, 400); }
 
-  // honeypot: скрытое поле должно быть пустым
   if (body.hp) return json({ error: "Запрос отклонён" }, 400);
 
-  // форма, отправленная быстрее 1.5 секунды, считается ботом
   const ts = Number(body.ts) || 0;
-  if (!ts || Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
+  if (ts && Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
 
-  // капча проверяется, если задан секрет
   if (env.HCAPTCHA_SECRET) {
     const cap = await verifyCaptcha(body.captcha, ip, env);
     if (!cap.success) return json({ error: "Неверная капча. Попробуйте снова" }, 400);
@@ -214,6 +202,7 @@ export default {
       try {
         return await handleApi(request, env, url);
       } catch (e) {
+        console.error("API error:", e);
         return json({ error: "Внутренняя ошибка сервера" }, 500);
       }
     }
