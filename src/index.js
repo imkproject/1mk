@@ -157,13 +157,10 @@ async function handleApi(request, env, url) {
   const ts = Number(body.ts) || 0;
   if (!ts || Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
 
-  // капча обязательна (как в KZRP)
-  const cap = await verifyCaptcha(body.captcha, ip, env);
-  if (!cap.success) {
-    const msg = cap.reason === "config"
-      ? "Капча временно недоступна"
-      : "Неверная капча. Попробуйте снова";
-    return json({ error: msg }, 400);
+  // капча проверяется, если задан секрет
+  if (env.HCAPTCHA_SECRET) {
+    const cap = await verifyCaptcha(body.captcha, ip, env);
+    if (!cap.success) return json({ error: "Неверная капча. Попробуйте снова" }, 400);
   }
 
   const password = String(body.password || "");
