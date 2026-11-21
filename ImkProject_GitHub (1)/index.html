@@ -121,9 +121,8 @@
 <section class="section" id="social"><div class="wrap">
   <div class="kicker">Будь на связи</div><h2>Социальные сети</h2>
   <p class="intro">Присоединяйся к нашим площадкам, следи за обновлениями и общайся с участниками проекта.</p>
-  <div class="grid">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
     <article class="card"><div class="icon">💬</div><h3>Discord</h3><p>Наш Discord-сервер</p><p><a href="https://discord.gg/m7Ex6R6Hqa" target="_blank" rel="noopener noreferrer">Присоединиться ↗</a></p></article>
-    <article class="card"><div class="icon">✈️</div><h3>Telegram</h3><p>Канал ImkProject</p><p><a href="https://t.me/imkproject" target="_blank" rel="noopener noreferrer">Открыть канал ↗</a></p></article>
   </div>
 </div></section>
 </main>
@@ -132,10 +131,10 @@
 <div class="auth-modal" id="authModal"><div class="auth-box">
 <button class="close" id="closeAuth">×</button><h2>Личный кабинет</h2>
 <div class="auth-tabs"><button type="button" class="active" data-mode="login">Вход</button><button type="button" data-mode="register">Регистрация</button></div>
-<form id="authForm">
+<form id="authForm" novalidate>
 <div id="regFields" hidden><label>Имя пользователя</label><input id="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="Логин" autocomplete="username"><label>Электронная почта</label><input id="email" type="email" maxlength="254" placeholder="name@example.com" autocomplete="email"></div>
-<div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" required placeholder="Логин или почта" autocomplete="username"></div>
-<label>Пароль</label><input id="password" type="password" minlength="8" maxlength="128" required autocomplete="current-password">
+<div id="identityField"><label>Логин или электронная почта</label><input id="identity" maxlength="254" placeholder="Логин или почта" autocomplete="username"></div>
+<label>Пароль</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="current-password">
 <div id="confirmField" hidden><label>Повторите пароль</label><input id="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"></div>
 <div class="h-captcha" data-sitekey="c5182b4e-9ede-4990-9266-45901242cca6" data-theme="dark"></div><p style="font-size:12px;color:#aaa">Защита hCaptcha.</p><div class="auth-status" id="authStatus"></div>
 <button class="auth-btn" id="submitAuth" type="submit">Войти</button>
