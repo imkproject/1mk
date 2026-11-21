@@ -41,6 +41,32 @@ async function verifyCaptcha(token, ip, secret) {
   return res.json();
 }
 
+/* ---------- антибот ---------- */
+
+async function rateLimit(env, ip, bucket, limit, windowSec) {
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - (now % windowSec);
+
+  await env.DB.prepare(
+    `INSERT INTO rate_limits (ip, bucket, window_start, count) VALUES (?, ?, ?, 1)
+     ON CONFLICT(ip, bucket, window_start) DO UPDATE SET count = count + 1`
+  ).bind(ip, bucket, windowStart).run();
+
+  const row = await env.DB.prepare(
+    "SELECT count FROM rate_limits WHERE ip = ? AND bucket = ? AND window_start = ?"
+  ).bind(ip, bucket, windowStart).first();
+
+  // редкая уборка старых записей
+  if (Math.random() < 0.02) {
+    await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
+      .bind(now - 86400).run();
+  }
+
+  return (row?.count || 0) <= limit;
+}
+
+/* ---------- сессии ---------- */
+
 const SESSION_COOKIE = "imk_sid";
 const SESSION_TTL = 60 * 60 * 24 * 30;
 const cookieHeader = (token, maxAge) =>
@@ -76,9 +102,11 @@ async function currentUser(request, env) {
   return row || null;
 }
 
+/* ---------- API ---------- */
+
 async function handleApi(request, env, url) {
   const path = url.pathname;
-  const ip = request.headers.get("CF-Connecting-IP");
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
   if (path === "/api/me" && request.method === "GET") {
     return json({ user: await currentUser(request, env) });
@@ -98,16 +126,33 @@ async function handleApi(request, env, url) {
   }
   if (request.method !== "POST") return json({ error: "Метод не поддерживается" }, 405);
 
+  const isRegister = path === "/api/register";
+
+  // лимит запросов: 5 регистраций и 10 входов за 10 минут с одного IP
+  const allowed = await rateLimit(env, ip, isRegister ? "reg" : "login", isRegister ? 5 : 10, 600);
+  if (!allowed) {
+    return json({ error: "Слишком много попыток. Попробуйте позже." }, 429);
+  }
+
   let body;
   try { body = await request.json(); } catch { return json({ error: "Некорректный запрос" }, 400); }
 
-  const captcha = await verifyCaptcha(body.captcha, ip, env.HCAPTCHA_SECRET);
-  if (!captcha.success) return json({ error: "Капча не пройдена" }, 400);
+  // honeypot: скрытое поле должно быть пустым
+  if (body.hp) return json({ error: "Запрос отклонён" }, 400);
+
+  // форма, отправленная быстрее 1.5 секунды, считается ботом
+  const ts = Number(body.ts) || 0;
+  if (!ts || Date.now() - ts < 1500) return json({ error: "Запрос отклонён" }, 400);
+
+  if (env.HCAPTCHA_SECRET) {
+    const captcha = await verifyCaptcha(body.captcha, ip, env.HCAPTCHA_SECRET);
+    if (!captcha.success) return json({ error: "Капча не пройдена" }, 400);
+  }
 
   const password = String(body.password || "");
   if (password.length < 8) return json({ error: "Пароль должен быть не короче 8 символов" }, 400);
 
-  if (path === "/api/register") {
+  if (isRegister) {
     const username = String(body.username || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
 
